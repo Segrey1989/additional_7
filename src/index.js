@@ -1,139 +1,105 @@
 module.exports = function solveSudoku(matrix) {
-  fill_alone(matrix);
+    if (try_to_solve(matrix)) {
+      return matrix;
+    }
+    return false;
+  }
 
- var flag = false;
- do {
-   flag = try_variant(matrix);
- } while (flag === false)
-
- return matrix;
+// возвращаем все значения строки
+  function getRowValues(row_index, matrix) {
+  //return Array.from(new Set(matrix[row_index]));
+  return [...new Set(matrix[row_index])];
 }
 
+// возвращаем все значения колонки
+function getColumnValues(column_index, matrix) {
+  var col_values = [];
+  for (let i = 0; i < 9; i++)
+    col_values[i] = matrix[i][column_index];
+  return col_values;
+}
 
-// в матрице, где нет однозначных значений
-// //подставляем случайные из тех, которые подходят,
-// //если после этого 0 не остается - возвращаем true
-function try_variant(matrix) {
- mat1 = [];
- matrix.forEach(function (subArray) {
-   mat1.push(subArray.concat());
- });// копия матрицы
+// возвращаем все значения блока
+function getBlockValues(row_index, column_index, matrix) {
+  var values = [];
+  var rows = 3 * (Math.floor(row_index / 3));
+  var cols = 3 * (Math.floor(column_index / 3));
+  for (let r = 0; r < 3; ++r) {
+    for (let c = 0; c < 3; ++c) {
+      values.push(matrix[rows + r][cols + c]);
+    }
+  }
+  return values;
+}
 
- var arr = []; // для хранения вариантов для ячейки
- var needToFeel = findSell(mat1);
- var size = needToFeel.length;
- for (var i = 0; i < size; i++) {
-        var a = needToFeel[i][0];
-        var b = needToFeel[i][1];
-     if (mat1[a][b] === 0) {
-       for (var num = 1; num <= 9; num++) {
-         if (isValid(mat1, a, b, num))
-           arr.push(num);
-       }
+// возвращаем массив унмкальных значений, валидных для ячейки
+function findValues(row_index, column_index, matrix) {
+  var array = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  var values = [...getRowValues(row_index, matrix), ...getColumnValues(column_index, matrix), ...getBlockValues(row_index, column_index, matrix)];
 
-       if (arr.length > 0) {
-         var rand = Math.random() * arr.length;
-         rand = Math.floor(rand);
-         mat1[a][b] = arr[rand];
-         fill_alone(mat1);
-       }
-     }
-     arr = [];
-
- }
- //если в матрице остались 0 - значения неверны
- if (countZero(mat1) > 0) return false;
- else {
-   matrix.splice(0, matrix.length);
-   mat1.forEach(function (subArray) {
-     matrix.push(subArray.concat());
-   });
- }
- return true;
+  return array.filter(x => values.indexOf(x) == -1)
 
 }
 
-// заполнение ячеек с очевидными решениями
-function fill_alone(matr) {
+// поиск решения
+function try_to_solve(matrix) {
+  var minRow = -1;
+  var minColumn = -1;
+  var minValues = [];
+  while (true) {
+    minRow = -1;
 
- var size = matr.length;
- var count1 = countZero(matr);
- var count2 = 0;
- var arr = [];
- while (count1 > count2) {
-   count1 = count2;
-   for (var i = 0; i < size; i++) {
-     for (var j = 0; j < size; j++) {
-       if (matr[i][j] === 0)
-         for (var num = 1; num <= 9; num++) {
-           if (isValid(matr, i, j, num))
-             arr.push(num);
-         }
-       if (arr.length === 1) {
-         matr[i][j] = arr[0];
-         count2--;
-       }
-       arr = [];
-     }
-   }
- }
-}
+    for (var row_index = 0; row_index < 9; ++row_index) {
+      for (var column_index = 0; column_index < 9; ++column_index) {
 
-// проверка валидности ячейки
-function isValid(mtx, i, j, num) {
+        // ячейка не 0
+        if (matrix[row_index][column_index] !== 0) {
+          continue;
+        }
+        // если нет подходящих значений - нельзя решить
+        var possibleValues = findValues(row_index, column_index, matrix)
+        var possibleValueCount = possibleValues.length;
+        if (possibleValueCount === 0) {
+          return false;
+        }
 
-  // в квадрате
- var length = 9;
- var i1, i2, j1, j2;
- if (i < 3) { i1 = 0; i2 = 3 }
- else if (i < 6) { i1 = 3; i2 = 6 }
- else { i1 = 6; i2 = 9 }
+        // если одно значение - вставляем
+        if (possibleValueCount === 1) {
+          matrix[row_index][column_index] = possibleValues[0];
+        }
 
+        if (minRow < 0 || possibleValueCount < minValues.length) {
+          minRow = row_index;
+          minColumn = column_index;
+          minValues = possibleValues;
 
- if (j < 3) { j1 = 0; j2 = 3 }
- else if (j < 6) { j1 = 3; j2 = 6 }
- else { j1 = 6; j2 = 9 }
+        }
+      }
+    }
 
- for (let a = i1; a < i2; a++) {
-   for (let b = j1; b < j2; b++) {
-     if (mtx[a][b] == num)
-       return false; //найдено совпадение
-   }
- }
- // проверка строки
- for (let a = 0; a < length; a++)
-   if (mtx[i][a] === num)
-     return false;
+    if (minRow == -1) {
+      return true;
+    }
+    else if (1 < minValues.length) {
+      break;
+    }
+  }
 
- //проверка колонки
- for (let b = 0; b < length; b++)
-   if (mtx[b][j] === num)
-     return false;
+  for (var i = 0; i < minValues.length; i++) {
+    var mtxCopy = [];
+    matrix.forEach(function (subArray) {
+      mtxCopy.push(subArray.concat());
+    });// копия матрицы
+    mtxCopy[minRow][minColumn] = minValues[i];
 
- return true;
+    if (try_to_solve(mtxCopy)) {
+      matrix.splice(0, matrix.length);
+        mtxCopy.forEach(function (subArray) {
+      matrix.push(subArray.concat());
+    });
 
-}
-
-// подсчет количества нулей в матрице
-function countZero(matrix) {
- var size = matrix.length;
- var count = 0;
- for (var i = 0; i < size; i++)
-   for (var j = 0; j < size; j++)
-     if (matrix[i][j] === 0)
-       count++;
- return count;
-}
-
-
-// возвращает масси с координатами нулевых ячеек(не используется)
-function findSell(matrix) {
- var coords = [];
- var size = matrix.length;
- for (var i = 0; i < size; i++)
-   for (var j = 0; j < size; j++)
-     if (matrix[i][j] === 0){
-       coords.push([i, j]);
-     }
- return coords;
+      return true;
+    }
+  }
+  return false;
 }
